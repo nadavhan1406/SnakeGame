@@ -5,6 +5,8 @@ DATASEG
 	Clock equ es:6Ch
 	home_screen_text db 10,13," Snake",10,10,10,13, "-Made by Nadav Hananel",10,10,10,10,10,10,10,10,10,10,13,"        Start               Exit$"
 	game_over_text db 10,10,10,13,"               GAME OVER",10,10,10,13," Your Score:      $"
+	game_won_text db 10,10,10,13,"               YOU WON!",10,10,10,13," Your Score:      $"
+
 	end_buttons db 10,10,10,10,10,10,10,10,13,"     Play Again             Exit$"
 	test_text db 13,"GAME OVER$"
 
@@ -211,7 +213,7 @@ cord:
 checkapple:
 	mov si, cx
 	shl si, 1
-	cmp ax, [snake_cord+si-1]
+	cmp ax, [snake_cord+si-2]
 	jb contin
 	inc ax
 contin: 
@@ -390,9 +392,10 @@ endp home_screen
 proc main_screen
 	push ax
 	push cx
-	push si
-	mov ax, 2h ;hide mouse
+	push si	
+	mov ax, 2h ;show mouse
 	int 33h
+	
 
 	call setup
 	mov ah, 9h ;print string
@@ -446,6 +449,7 @@ right_bord:
 	pop ax
 	ret
 endp main_screen
+
 proc print_score
 	push ax
 	push bx
@@ -475,6 +479,7 @@ printloop:
 	pop ax
 	ret
 endp print_score
+
 proc print_snake
 	push [head_x]
 	push [head_y]
@@ -510,12 +515,13 @@ proc print_apple
 	add ax, 17
 	push ax
 	mov [apple_y], ax
-	push 4
+	push 40
 	call pixel9
 	pop bx
 	pop ax
 	ret
 endp print_apple
+
 proc keyboard_input
 	push ax
 	push bx
@@ -539,6 +545,7 @@ noKeyPress:
 	pop ax
 	ret
 endp keyboard_input
+
 proc game_input
 	push ax
 	push bx
@@ -575,18 +582,6 @@ noKey:
 	pop ax
 	ret
 endp game_input
-proc waitmic
-	push bp
-	mov bp, sp
-	push ax
-	push cx
-	push dx
-	mov cx, [bp+6]
-	mov dx, [bp+4]
-	mov ah, 86h
-	int 15h
-	ret 4
-endp waitmic
 
 proc updateSnake
 	push ax
@@ -655,10 +650,13 @@ notlast:
 	call checkhead ;check if head is valid
 	cmp [isValid], 1 ;if valid, update and continue snake
 	jne noValid
+	cmp [isApple], 1
+	je dontdel
 	push [tail_x]
 	push [tail_y]
 	push 0
 	call pixel11
+dontdel:
 	call print_snake
 noValid:
 	pop si
@@ -669,6 +667,7 @@ noValid:
 	pop ax
 	ret
 endp updateSnake
+
 proc checkhead
 	push ax
 	push bx
@@ -710,18 +709,15 @@ valid:
 	pop ax
 	ret
 endp checkhead
+
 proc endGame
 	push ax
 	push bx
 	push cx
 	push dx
 
+	;call gamelostsound
 	call graphic_mode
-
-	mov ax, 0h ;hide mouse
-	int 33h
-	mov ax, 1h ;hide mouse
-	int 33h
 
 	mov ah, 9h ;print string
 	mov dx, offset game_over_text
@@ -734,7 +730,7 @@ proc endGame
 	mov ax, 0h ;turn on mouse
 	int 33h
 	
-	mov ax, 2h ;show mouse
+	mov ax, 1h ;show mouse
 	int 33h
 	
 
@@ -852,6 +848,230 @@ again_game:
 	pop ax
 	ret
 endp endGame
+
+proc gameWon
+	push ax
+	push bx
+	push cx
+	push dx
+
+	;call gamelostsound
+	call graphic_mode
+
+	mov ah, 9h ;print string
+	mov dx, offset game_won_text
+	int 21h
+	call print_score
+	mov ah, 9h ;print string
+	mov dx, offset end_buttons
+	int 21h
+	
+	mov ax, 0h ;turn on mouse
+	int 33h
+	
+	mov ax, 1h ;show mouse
+	int 33h
+	
+
+	mov cx, 31
+again_pixel_left2:
+	push 20
+	mov ax, 101
+	add ax, cx
+	push ax
+	push 15
+	call pixel
+	loop again_pixel_left2
+
+mov cx, 120
+again_pixel_up2:
+	mov ax, 20
+	add ax, cx
+	push ax
+	push 102
+	push 15
+	call pixel
+	loop again_pixel_up2
+	
+	mov cx, 120
+again_pixel_down2:
+	mov ax, 20
+	add ax, cx
+	push ax
+	push 132
+	push 15
+	call pixel
+	loop again_pixel_down2
+	
+	mov cx, 31
+again_pixel_right2:
+	push 140
+	mov ax, 101
+	add ax, cx
+	push ax
+	push 15
+	call pixel
+	loop again_pixel_right2
+	
+	mov cx, 31
+exit2_pixel_left2:
+	push 180
+	mov ax, 101
+	add ax, cx
+	push ax
+	push 15
+	call pixel
+	loop exit2_pixel_left2
+
+mov cx, 120
+exit2_pixel_up2:
+	mov ax, 180
+	add ax, cx
+	push ax
+	push 102
+	push 15
+	call pixel
+	loop exit2_pixel_up2
+	
+mov cx, 120
+exit2_pixel_down2:
+	mov ax, 180
+	add ax, cx
+	push ax
+	push 132
+	push 15
+	call pixel
+	loop exit2_pixel_down2
+	
+	mov cx, 31
+exit2_pixel_right2:
+	push 300
+	mov ax, 101
+	add ax, cx
+	push ax
+	push 15
+	call pixel
+	loop exit2_pixel_right2
+	
+won_loop:
+	xor bx,bx
+	mov ax, 3h ;check mouse
+	int 33h
+	shr cx, 1
+	cmp bx, 1
+	jne noclick3
+	cmp dx, 102
+	jb noclick3
+	cmp dx, 132
+	ja noclick3
+	cmp cx, 20
+	jb noclick3
+	cmp cx, 140
+	ja noagain3
+	jmp again_game2
+noagain3:
+	cmp cx, 180
+	jb noclick3
+	cmp cx, 300
+	ja noclick3
+	mov ah,0
+	mov al,2
+	int 10h
+	jmp exit
+noclick3:
+	jmp won_loop
+again_game2:
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	ret
+endp gameWon
+
+proc startSound ;pushed frequency 
+    push bp
+    mov bp, sp
+    push ax
+
+    in al, 61h ;get speaker
+    or al, 00000011b ;turn on
+    out 61h, al
+
+    mov al, 0B6h
+
+    out 43h, al;get permission
+
+    mov ax, [bp+4] ;the 
+    out 42h, al
+    mov al, ah
+    out 42h, al
+
+    pop ax
+    pop bp
+    ret 2
+endp startSound
+
+proc wait_ten
+    push ax
+    push cx
+    push dx
+
+    mov cx, 0001h
+    mov dx, 86A0h
+    mov ah, 86h
+    int 15h
+
+    pop dx
+    pop cx
+    pop ax
+    ret
+endp wait_ten
+
+proc stopSound
+    push ax
+
+    in al, 61h
+    and al, 11111100b
+    out 61h, al
+
+    pop ax
+    ret
+endp stopSound
+
+proc gamelostsound
+	push 13666 ;F2
+    call startSound
+    call wait_ten
+    call wait_ten
+    call stopSound
+    push 14478 ;E2
+    call startSound
+    call wait_ten
+    call stopSound
+    push 16251 ;D2
+    call startSound
+    call wait_ten
+    call stopSound
+    push 18241 ;C2
+    call startSound
+    call wait_ten
+    call stopSound
+	ret
+endp gamelostsound
+
+proc scoresound
+	push 4561 ;C4
+	call startsound
+	call wait_ten
+	call stopsound
+	push 3620 ;E4
+	call startsound
+	push 3044 ;G4
+	call startsound
+	call wait_ten
+	call stopsound
+	ret
+endp scoresound
 start:
 	mov ax, @data
 	mov ds, ax
@@ -868,10 +1088,7 @@ startgame:
 main_loop:
 	
 
-;	mov ax, [Clock]
-FirstTick:
-;	cmp ax, [Clock]
-;	je FirstTick
+
 	mov cx, 3
 DelayLoop:
 	mov ax, [Clock]
@@ -886,6 +1103,7 @@ Tick:
 	jne noval
 	cmp [isapple], 1
 	jne noApp
+	;call scoresound
 	push ax
 	push bx
 	push cx
@@ -897,12 +1115,20 @@ Tick:
 	mov cx, [tail_y]
 	mov [snake_y+bx], cx
 	inc [snakelen]
-	call print_snake
 	inc [score]
 	mov ah, 9h ;print string
 	mov dx, offset score_text
 	int 21h
 	call print_score
+	cmp [snakelen], 447
+	jne more
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	call gamewon
+	jmp startgame
+more:
 	call applehandle
 	pop dx
 	pop cx
