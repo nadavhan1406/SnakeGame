@@ -2,7 +2,13 @@ IDEAL
 MODEL small
 STACK 100h
 DATASEG
+	; הערה: הקוד הזה לא קריא, וגם לא עשיתי כל כך הרבה הערות. יש גם אולי מקומות שבהן יש הערות בנוגע לשורה, אבל זה לא מה שיש בשורה, וזה כי שיניתי שורות ודברים, וכנראה שכחתי לשנות את ההערות.
 	Clock equ es:6Ch
+
+	start_len equ 3 ;can be anything from 0 to 8 (0 may not work right)
+	;the length doesn't include the head, so 0 is just the head.
+	win_len equ 447 ;supposed to be 447, but you can change that needed length to win
+
 	home_screen_text db 10,13," Snake",10,10,10,13, "-Made by Nadav Hananel",10,10,10,10,10,10,10,10,10,10,13,"        Start               Exit$"
 	game_over_text db 10,10,10,13,"               GAME OVER",10,10,10,13," Your Score:      $"
 	game_won_text db 10,10,10,13,"               YOU WON!",10,10,10,13," Your Score:      $"
@@ -39,6 +45,8 @@ DATASEG
 
 	buffer db 0
 
+	win_sound_arr dw 2560,1,1,2560,1,2560,2280,1,2560,1,2280,1,2032,1,1,2032,1,2032,1918,1,2032,1,1918,1,1708,0
+	lost_sound_arr dw 12175,13666,1,1,14478,18241,0 
 CODESEG
 proc setup
 	push bx
@@ -47,7 +55,7 @@ proc setup
 	push bp
 	mov [score], 0
 	mov [buffer], 0
-	mov [snakelen], 3
+	mov [snakelen], start_len
 	mov [isValid], 1
 	mov [dir], 'd'
 	mov [isApple], 0
@@ -58,6 +66,8 @@ proc setup
 	mov bp, cx
 	shl bp, 1
 	mov bx, [head_y]
+	cmp cx, 0
+	je len0
 setuploop:
 	mov si, cx
 	shl si, 1
@@ -67,12 +77,14 @@ setuploop:
 	mov [snake_y+si], bx
 	mov [snake_x+si], 110
 	loop setuploop
+	len0:
 	pop bp
 	pop si
 	pop cx
 	pop bx
 	ret
 endp setup
+
 proc pixel
 	push bp ;access the stack with bp
 	mov bp, sp
@@ -94,7 +106,7 @@ proc pixel
 	ret 6
 endp pixel
 
-proc pixel11 ;takes center x,y and color, and builds a square from x-7,y-7 to x+7,y+7 (15x15), with the given color
+proc pixel11 ;takes center x,y and color, and builds a square from x-5,y-5 to x+5,y+5 (11x11), with the given color
 	push bp ;access the stack with bp
 	mov bp, sp 
 	push si ;save registers
@@ -106,17 +118,17 @@ proc pixel11 ;takes center x,y and color, and builds a square from x-7,y-7 to x+
 	mov al, [bp+4] ;al = color
 	mov dx, [bp+6] ;dx = y center
 	mov bx, [bp+8] ;bx = x center
-	mov cx, 11 ;loop 15 times for 15 different x-values
+	mov cx, 11 ;loop 15 times for 11 different x-values
 pi11x:
-	mov si, cx ;si = cx. si is 1 to 15
-	sub si, 6 ;si is -7 to 7
-	add si, bx ;si is the x-7 to x+7. meaning si have the x-values of the square
+	mov si, cx ;si = cx. si is 1 to 11
+	sub si, 6 ;si is -5 to 5
+	add si, bx ;si is the x-5 to x+5. meaning si have the x-values of the square
 	push cx ;save cx for the y loop
-	mov cx, 11 ;loop 15 times for 15 different y-values
-pi11y: ;for each x value, we will print 15 diffferent pixels in 15 different y values
-	push cx ;save cx. cx is 1 to 15
-	sub cx, 6 ;cx is -7 to 7
-	add cx, dx ;cx is the y-7 to y+7, meaning cx have the y-values of the square
+	mov cx, 11 ;loop 11 times for 11 different y-values
+pi11y: ;for each x value, we will print 11 diffferent pixels in 11 different y values
+	push cx ;save cx. cx is 1 to 11
+	sub cx, 6 ;cx is -5 to 5
+	add cx, dx ;cx is the y-5 to y+5, meaning cx have the y-values of the square
 	push si ;the x value
 	push cx ;the y value
 	push ax ;the color
@@ -134,7 +146,7 @@ pi11y: ;for each x value, we will print 15 diffferent pixels in 15 different y v
 	ret 6
 endp pixel11
 
-proc pixel9 ;takes center x,y and color, and builds a square from x-7,y-7 to x+7,y+7 (15x15), with the given color
+proc pixel9 ;takes center x,y and color, and builds a square from x-4,y-4 to x+4,y+4 (9x9), with the given color
 	push bp ;access the stack with bp
 	mov bp, sp 
 	push si ;save registers
@@ -146,17 +158,17 @@ proc pixel9 ;takes center x,y and color, and builds a square from x-7,y-7 to x+7
 	mov al, [bp+4] ;al = color
 	mov dx, [bp+6] ;dx = y center
 	mov bx, [bp+8] ;bx = x center
-	mov cx, 9 ;loop 15 times for 15 different x-values
+	mov cx, 9 ;loop 15 times for 9 different x-values
 pi9x:
-	mov si, cx ;si = cx. si is 1 to 15
-	sub si, 5 ;si is -7 to 7
-	add si, bx ;si is the x-7 to x+7. meaning si have the x-values of the square
+	mov si, cx ;si = cx. si is 1 to 9
+	sub si, 5 ;si is -4 to 4
+	add si, bx ;si is the x-4 to x+4. meaning si have the x-values of the square
 	push cx ;save cx for the y loop
-	mov cx, 9 ;loop 15 times for 15 different y-values
-pi9y: ;for each x value, we will print 15 diffferent pixels in 15 different y values
-	push cx ;save cx. cx is 1 to 15
-	sub cx, 5 ;cx is -7 to 7
-	add cx, dx ;cx is the y-7 to y+7, meaning cx have the y-values of the square
+	mov cx, 9 ;loop 9 times for 9 different y-values
+pi9y: ;for each x value, we will print 9 diffferent pixels in 9 different y values
+	push cx ;save cx. cx is 1 to 9
+	sub cx, 5 ;cx is -4 to 4
+	add cx, dx ;cx is the y-4 to y+4, meaning cx have the y-values of the square
 	push si ;the x value
 	push cx ;the y value
 	push ax ;the color
@@ -246,6 +258,7 @@ validapp:
 	pop ax
 	ret
 endp appleHandle
+
 proc graphic_mode
     push ax ;save ax
 
@@ -487,6 +500,8 @@ proc print_snake
 	call pixel11
 	
 	mov cx, [snakelen]
+	cmp cx, 0
+	je len00
 snakeloop:
 	mov si, cx
 	shl si, 1
@@ -495,6 +510,7 @@ snakeloop:
 	push 10
 	call pixel11
 	loop snakeloop
+len00:
 	ret
 endp print_snake
 
@@ -622,6 +638,17 @@ updateloop:
 	mov cx, [snakelen] ;for every square in snake tail
 	mov bp, [snakelen]
 	shl bp, 1
+	cmp cx, 0
+	jne sna_upd
+	push ax
+	mov ax, [tail_x]
+	mov [tail2_x], ax
+	mov ax, [tail_y]
+	mov [tail2_y], ax
+	pop ax
+	mov [tail_x], ax
+	mov [tail_y], bx
+	jmp len000
 sna_upd:
 	mov si, cx
 	shl si, 1
@@ -647,6 +674,7 @@ sna_upd:
 	mov [tail_y], bx
 notlast:
 	loop sna_upd
+len000:
 	call checkhead ;check if head is valid
 	cmp [isValid], 1 ;if valid, update and continue snake
 	jne noValid
@@ -685,6 +713,8 @@ proc checkhead
 	mov ax, [head_x]
 	mov bx, [head_y]
 	mov cx, [snakelen]
+	cmp cx, 0
+	je snakelen0
 check:
 	mov si, cx
 	shl si,1
@@ -694,6 +724,7 @@ check:
 	je notValid
 valx:
 	loop check
+snakelen0:
 	cmp ax, [apple_x]
 	jne valid
 	cmp bx, [apple_y]
@@ -716,7 +747,8 @@ proc endGame
 	push cx
 	push dx
 
-	;call gamelostsound
+	mov si, offset lost_sound_arr
+	call playArray
 	call graphic_mode
 
 	mov ah, 9h ;print string
@@ -855,7 +887,6 @@ proc gameWon
 	push cx
 	push dx
 
-	;call gamelostsound
 	call graphic_mode
 
 	mov ah, 9h ;print string
@@ -952,6 +983,9 @@ exit2_pixel_right2:
 	push 15
 	call pixel
 	loop exit2_pixel_right2
+
+	mov si, offset win_sound_arr
+	call playArray
 	
 won_loop:
 	xor bx,bx
@@ -1038,40 +1072,33 @@ proc stopSound
     ret
 endp stopSound
 
-proc gamelostsound
-	push 13666 ;F2
-    call startSound
-    call wait_ten
-    call wait_ten
-    call stopSound
-    push 14478 ;E2
-    call startSound
-    call wait_ten
-    call stopSound
-    push 16251 ;D2
-    call startSound
-    call wait_ten
-    call stopSound
-    push 18241 ;C2
-    call startSound
-    call wait_ten
-    call stopSound
-	ret
-endp gamelostsound
 
-proc scoresound
-	push 4561 ;C4
-	call startsound
+proc playArray ;gets array offewonsoundset in si
+	push si
+	push bx
+playloop:
+	mov bx, [si]
+	cmp bx,  0
+	je endarray
+	cmp bx, 1
+	je break
+	push bx
+	call startSound
+break:
 	call wait_ten
-	call stopsound
-	push 3620 ;E4
-	call startsound
-	push 3044 ;G4
-	call startsound
-	call wait_ten
-	call stopsound
-	ret
-endp scoresound
+	call stopSound
+	add si, 2
+	jmp playloop
+
+endarray:
+	pop bx
+	pop si
+	ret 
+endp playArray
+
+
+
+
 start:
 	mov ax, @data
 	mov ds, ax
@@ -1086,9 +1113,6 @@ startgame:
 	mov ah, 0
 	int 16h	
 main_loop:
-	
-
-
 	mov cx, 3
 DelayLoop:
 	mov ax, [Clock]
@@ -1096,14 +1120,23 @@ Tick:
 	call keyboard_input
 	cmp ax, [Clock]
 	je TICK
+	cmp [isApple],1
+	jne no2
+	cmp cx, 2
+	jne no2
+	call stopSound
+	push 3044 ;G4
+	call startSound
+no2:
 	loop DELAYLOOP
+	call stopSound
+	mov [isapple], 0
 	call game_input
 	call updatesnake
 	cmp [isValid], 1
 	jne noval
 	cmp [isapple], 1
 	jne noApp
-	;call scoresound
 	push ax
 	push bx
 	push cx
@@ -1120,7 +1153,7 @@ Tick:
 	mov dx, offset score_text
 	int 21h
 	call print_score
-	cmp [snakelen], 447
+	cmp [snakelen], win_len;
 	jne more
 	pop dx
 	pop cx
@@ -1129,12 +1162,13 @@ Tick:
 	call gamewon
 	jmp startgame
 more:
+	push 4561 ;C4
+	call startsound
 	call applehandle
 	pop dx
 	pop cx
 	pop bx
 	pop ax
-	mov [isapple], 0
 noApp:
 	jmp main_loop
 noval:
@@ -1145,5 +1179,3 @@ exit:
 	mov ax, 4c00h
 	int 21h
 END start
-
-
